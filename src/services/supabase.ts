@@ -211,6 +211,63 @@ export const userService = {
   }
 };
 
+// Auth Service (for easier importing)
+export const authService = {
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      if (!isSupabaseConfigured()) {
+        return null;
+      }
+
+      // First check if we have a valid session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        return null;
+      }
+
+      const authUser = session.user;
+
+      // Get user profile from database
+      const { data: userProfile, error } = await userService.getUserProfile(authUser.id);
+      
+      if (error) {
+        console.error('Error getting user profile:', error);
+        return null;
+      }
+
+      // If no profile exists, try to create one
+      if (!userProfile && authUser.email) {
+        const { data: newProfile, error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: authUser.email,
+            username: authUser.user_metadata?.username || authUser.email.split('@')[0],
+            is_verified: false,
+            total_earnings: 0,
+            follower_count: 0,
+            following_count: 0
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating user profile:', createError);
+          return null;
+        }
+
+        return newProfile;
+      }
+
+      return userProfile;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+  }
+};
+
 // Content Management Service
 export const contentService = {
   async getCreations(limit = 20, offset = 0) {
@@ -269,10 +326,13 @@ export const contentService = {
         return { data: null, error: { message: 'Supabase not configured' } };
       }
 
+      // Remove the creator object from the creation data before inserting
+      const { creator, ...creationData } = creation;
+
       const { data, error } = await supabase
         .from('creations')
         .insert({
-          ...creation,
+          ...creationData,
           likes_count: 0,
           comments_count: 0,
           shares_count: 0,
