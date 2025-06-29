@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Menu, X, Lightbulb, MessageSquare, Code, Bot, BarChart3, Settings, LogOut } from 'lucide-react';
+import { Bell, User, Menu, X, Lightbulb, MessageSquare, Code, Bot, BarChart3, Settings, LogOut, AlertCircle } from 'lucide-react';
 import ChatRoom from './ChatRoom';
 import StudioPage from './StudioPage';
 import APIPage from './APIPage';
@@ -10,7 +10,11 @@ import NotificationPanel from './NotificationPanel';
 import { authService } from '../services/auth';
 import { supabase } from '../services/supabase';
 
-const MainApp: React.FC = () => {
+interface MainAppProps {
+  supabaseConfigured?: boolean;
+}
+
+const MainApp: React.FC<MainAppProps> = ({ supabaseConfigured = false }) => {
   const [currentPage, setCurrentPage] = useState('chat');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -38,6 +42,17 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     const loadUser = async () => {
+      if (!supabaseConfigured) {
+        // Set a mock user when Supabase is not configured
+        setUser({
+          id: 'demo-user',
+          email: 'demo@dewdrop.io',
+          username: 'Demo User'
+        });
+        setSessionError(false);
+        return;
+      }
+
       try {
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
@@ -54,45 +69,50 @@ const MainApp: React.FC = () => {
 
     loadUser();
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        setUser(null);
-        setSessionError(true);
-        // Redirect to home page
-        window.location.href = '/';
-      } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-        // Reload user data
-        loadUser();
-      }
-    });
-
-    // Check session periodically
-    const sessionCheckInterval = setInterval(async () => {
-      try {
-        const isAuth = await authService.isAuthenticated();
-        if (!isAuth) {
+    // Only set up auth listeners if Supabase is configured
+    if (supabaseConfigured) {
+      // Listen for auth state changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          setUser(null);
           setSessionError(true);
-          // Auto-redirect after a short delay
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 2000);
+          // Redirect to home page
+          window.location.href = '/';
+        } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+          // Reload user data
+          loadUser();
         }
-      } catch (error) {
-        console.error('Session check failed:', error);
-        setSessionError(true);
-      }
-    }, 60000); // Check every minute
+      });
 
-    return () => {
-      subscription.unsubscribe();
-      clearInterval(sessionCheckInterval);
-    };
-  }, []);
+      // Check session periodically
+      const sessionCheckInterval = setInterval(async () => {
+        try {
+          const isAuth = await authService.isAuthenticated();
+          if (!isAuth) {
+            setSessionError(true);
+            // Auto-redirect after a short delay
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 2000);
+          }
+        } catch (error) {
+          console.error('Session check failed:', error);
+          setSessionError(true);
+        }
+      }, 60000); // Check every minute
+
+      return () => {
+        subscription.unsubscribe();
+        clearInterval(sessionCheckInterval);
+      };
+    }
+  }, [supabaseConfigured]);
 
   const handleLogout = async () => {
     try {
-      await authService.signOut();
+      if (supabaseConfigured) {
+        await authService.signOut();
+      }
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed:', error);
@@ -101,8 +121,8 @@ const MainApp: React.FC = () => {
     }
   };
 
-  // Show session error message
-  if (sessionError) {
+  // Show session error message only if Supabase is configured
+  if (sessionError && supabaseConfigured) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center bg-white rounded-xl p-8 shadow-lg border border-gray-200 max-w-md">
@@ -186,6 +206,19 @@ const MainApp: React.FC = () => {
             </button>
           </div>
 
+          {/* Database Status Warning */}
+          {!supabaseConfigured && (
+            <div className="mx-4 mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
+                <div>
+                  <p className="text-xs text-yellow-800 font-medium">Demo Mode</p>
+                  <p className="text-xs text-yellow-700">Database not configured</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* User Info */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
@@ -198,7 +231,9 @@ const MainApp: React.FC = () => {
                 <h3 className="font-semibold text-gray-900">
                   {user?.username || user?.email?.split('@')[0] || 'Creative User'}
                 </h3>
-                <p className="text-sm text-gray-600">Creativity Score: 8.7/10</p>
+                <p className="text-sm text-gray-600">
+                  {supabaseConfigured ? 'Creativity Score: 8.7/10' : 'Demo User'}
+                </p>
               </div>
             </div>
           </div>
@@ -236,7 +271,7 @@ const MainApp: React.FC = () => {
               className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all duration-200"
             >
               <LogOut className="w-5 h-5" />
-              <span className="font-medium">Sign Out</span>
+              <span className="font-medium">{supabaseConfigured ? 'Sign Out' : 'Exit Demo'}</span>
             </button>
           </div>
         </div>

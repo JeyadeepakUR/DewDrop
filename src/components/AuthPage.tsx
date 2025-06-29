@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Mail, Wallet, Shield, ArrowLeft } from 'lucide-react';
+import { Sparkles, Mail, Wallet, Shield, ArrowLeft, AlertCircle } from 'lucide-react';
 import { authService } from '../services/auth';
 import { web3Service } from '../services/web3';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
+  supabaseConfigured?: boolean;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, supabaseConfigured = false }) => {
   const [authMethod, setAuthMethod] = useState<'web3' | 'gmail' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +26,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   };
 
   const handleWeb3Auth = async () => {
+    if (!supabaseConfigured) {
+      setError('Database not configured. Web3 authentication requires a database connection.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -49,6 +55,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
   const handleGmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!supabaseConfigured) {
+      setError('Database not configured. Email authentication requires a database connection.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -123,12 +135,33 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             <p className="text-gray-600">Choose your preferred authentication method</p>
           </div>
 
+          {/* Database Configuration Warning */}
+          {!supabaseConfigured && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-yellow-800 mb-1">Database Not Configured</h4>
+                  <p className="text-sm text-yellow-700">
+                    To use authentication features, please set up your Supabase database connection. 
+                    You can still explore the demo features by going back to the home page.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!authMethod ? (
             <div className="space-y-4">
               {/* Web3 Authentication */}
               <button
                 onClick={() => setAuthMethod('web3')}
-                className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                disabled={!supabaseConfigured}
+                className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                  supabaseConfigured
+                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <Wallet className="w-5 h-5" />
                 <span className="font-medium">Connect Web3 Wallet</span>
@@ -137,7 +170,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
               {/* Gmail Authentication */}
               <button
                 onClick={() => setAuthMethod('gmail')}
-                className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-300 transform hover:scale-105"
+                disabled={!supabaseConfigured}
+                className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-xl transition-all duration-300 transform hover:scale-105 ${
+                  supabaseConfigured
+                    ? 'bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300'
+                    : 'bg-gray-100 text-gray-500 border-2 border-gray-200 cursor-not-allowed'
+                }`}
               >
                 <Mail className="w-5 h-5" />
                 <span className="font-medium">Continue with Email</span>
