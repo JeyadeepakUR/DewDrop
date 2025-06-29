@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Mail, Wallet, Shield, ArrowLeft, AlertCircle } from 'lucide-react';
-import { authService } from '../services/auth';
-import { web3Service } from '../services/web3';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
@@ -45,8 +43,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     setLoading(true);
     setError('');
     try {
+      const { web3Service } = await import('../services/web3');
       const result = await web3Service.connectWallet();
       if (result.success && result.account) {
+        const { authService } = await import('../services/auth');
         const authResult = await authService.signInWithWallet(result.account);
         if (authResult.error) {
           setError(authResult.error.message || 'Failed to authenticate with wallet');
@@ -84,13 +84,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     }
 
     try {
+      const { authService } = await import('../services/auth');
+      
       if (isSignUp) {
         const result = await authService.signUp(email, password, email.split('@')[0]);
         if (result.error) {
           setError(result.error.message || 'Failed to create account');
         } else {
-          onAuthSuccess();
-          navigate('/home');
+          // For demo purposes, immediately sign them in
+          setTimeout(() => {
+            onAuthSuccess();
+            navigate('/home');
+          }, 1000);
         }
       } else {
         const result = await authService.signIn(email, password);
@@ -113,6 +118,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Demo mode - allow bypassing auth for demonstration
+  const handleDemoMode = () => {
+    onAuthSuccess();
+    navigate('/home');
   };
 
   const supabaseConfigured = isSupabaseConfigured();
@@ -155,10 +166,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-yellow-800 mb-1">Database Not Configured</h4>
-                  <p className="text-sm text-yellow-700">
+                  <p className="text-sm text-yellow-700 mb-3">
                     To use authentication features, please set up your Supabase database connection. 
-                    You can still explore the demo features by going back to the home page.
+                    You can still explore the demo features.
                   </p>
+                  <button
+                    onClick={handleDemoMode}
+                    className="text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-md transition-colors"
+                  >
+                    Continue in Demo Mode
+                  </button>
                 </div>
               </div>
             </div>
