@@ -7,20 +7,13 @@ import BotBuilder from './BotBuilder';
 import Dashboard from './Dashboard';
 import ProfilePage from './ProfilePage';
 import NotificationPanel from './NotificationPanel';
-import { authService } from '../services/auth';
-import { supabase } from '../services/supabase';
 
-interface MainAppProps {
-  supabaseConfigured?: boolean;
-}
-
-const MainApp: React.FC<MainAppProps> = ({ supabaseConfigured = false }) => {
+const MainApp: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('chat');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [sessionError, setSessionError] = useState(false);
   const [notifications, setNotifications] = useState([
     {
       id: '1',
@@ -40,8 +33,22 @@ const MainApp: React.FC<MainAppProps> = ({ supabaseConfigured = false }) => {
     }
   ]);
 
+  // Check if Supabase is configured
+  const isSupabaseConfigured = () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    return supabaseUrl && 
+           supabaseKey && 
+           supabaseUrl !== 'https://placeholder.supabase.co' && 
+           supabaseKey !== 'placeholder-key' &&
+           supabaseUrl.includes('supabase.co');
+  };
+
   useEffect(() => {
     const loadUser = async () => {
+      const supabaseConfigured = isSupabaseConfigured();
+      
       if (!supabaseConfigured) {
         // Set a mock user when Supabase is not configured
         setUser({
@@ -49,68 +56,31 @@ const MainApp: React.FC<MainAppProps> = ({ supabaseConfigured = false }) => {
           email: 'demo@dewdrop.io',
           username: 'Demo User'
         });
-        setSessionError(false);
         return;
       }
 
       try {
+        const { authService } = await import('../services/auth');
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
-          setSessionError(false);
         } else {
-          setSessionError(true);
+          // If no user found, redirect to home
+          window.location.href = '/';
         }
       } catch (error) {
         console.error('Failed to load user:', error);
-        setSessionError(true);
+        window.location.href = '/';
       }
     };
 
     loadUser();
-
-    // Only set up auth listeners if Supabase is configured
-    if (supabaseConfigured) {
-      // Listen for auth state changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
-          setUser(null);
-          setSessionError(true);
-          // Redirect to home page
-          window.location.href = '/';
-        } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-          // Reload user data
-          loadUser();
-        }
-      });
-
-      // Check session periodically
-      const sessionCheckInterval = setInterval(async () => {
-        try {
-          const isAuth = await authService.isAuthenticated();
-          if (!isAuth) {
-            setSessionError(true);
-            // Auto-redirect after a short delay
-            setTimeout(() => {
-              window.location.href = '/';
-            }, 2000);
-          }
-        } catch (error) {
-          console.error('Session check failed:', error);
-          setSessionError(true);
-        }
-      }, 60000); // Check every minute
-
-      return () => {
-        subscription.unsubscribe();
-        clearInterval(sessionCheckInterval);
-      };
-    }
-  }, [supabaseConfigured]);
+  }, []);
 
   const handleLogout = async () => {
     try {
-      if (supabaseConfigured) {
+      if (isSupabaseConfigured()) {
+        const { authService } = await import('../services/auth');
         await authService.signOut();
       }
       window.location.href = '/';
@@ -120,27 +90,6 @@ const MainApp: React.FC<MainAppProps> = ({ supabaseConfigured = false }) => {
       window.location.href = '/';
     }
   };
-
-  // Show session error message only if Supabase is configured
-  if (sessionError && supabaseConfigured) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center bg-white rounded-xl p-8 shadow-lg border border-gray-200 max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LogOut className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Session Expired</h2>
-          <p className="text-gray-600 mb-6">Your session has expired. Please sign in again to continue.</p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-          >
-            Go to Sign In
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const menuItems = [
     { id: 'chat', label: 'Creative Chat', icon: MessageSquare, description: 'Real-time creative conversations' },
@@ -152,6 +101,7 @@ const MainApp: React.FC<MainAppProps> = ({ supabaseConfigured = false }) => {
   ];
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const supabaseConfigured = isSupabaseConfigured();
 
   const renderCurrentPage = () => {
     switch (currentPage) {

@@ -10,39 +10,24 @@ interface User {
 
 class AuthService {
   private currentUser: User | null = null;
-  private sessionCheckInterval: NodeJS.Timeout | null = null;
-
-  constructor() {
-    // Start session monitoring
-    this.startSessionMonitoring();
-  }
-
-  private startSessionMonitoring() {
-    // Check session every 30 seconds
-    this.sessionCheckInterval = setInterval(async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error || !session) {
-          // Session is invalid, sign out
-          console.log('Session invalid, signing out');
-          await this.signOut();
-        }
-      } catch (error) {
-        console.error('Session check failed:', error);
-      }
-    }, 30000);
-  }
-
-  private stopSessionMonitoring() {
-    if (this.sessionCheckInterval) {
-      clearInterval(this.sessionCheckInterval);
-      this.sessionCheckInterval = null;
-    }
-  }
 
   async getCurrentUser(): Promise<User | null> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const isConfigured = supabaseUrl && 
+                          supabaseKey && 
+                          supabaseUrl !== 'https://placeholder.supabase.co' && 
+                          supabaseKey !== 'placeholder-key' &&
+                          supabaseUrl.includes('supabase.co');
+
+      if (!isConfigured) {
+        console.log('Supabase not configured');
+        return null;
+      }
+
       // First check if we have a valid session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -67,7 +52,7 @@ class AuthService {
         return null;
       }
 
-      // If no profile exists, try to create one (for cases where trigger didn't work)
+      // If no profile exists, try to create one
       if (!userProfile && authUser.email) {
         const { data: newProfile, error: createError } = await supabase
           .from('users')
@@ -225,32 +210,10 @@ class AuthService {
 
   async signOut(): Promise<void> {
     try {
-      this.stopSessionMonitoring();
       await supabase.auth.signOut();
       this.currentUser = null;
-      
-      // Dispatch auth change event
-      window.dispatchEvent(new CustomEvent('dewdrop-auth-change'));
     } catch (error) {
       console.error('Error signing out:', error);
-    }
-  }
-
-  async refreshSession(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { data, error } = await supabase.auth.refreshSession();
-      
-      if (error) {
-        console.error('Session refresh failed:', error);
-        await this.signOut();
-        return { success: false, error: error.message };
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Session refresh error:', error);
-      await this.signOut();
-      return { success: false, error: (error as Error).message };
     }
   }
 

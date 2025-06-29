@@ -6,10 +6,9 @@ import { web3Service } from '../services/web3';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
-  supabaseConfigured?: boolean;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, supabaseConfigured = false }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   const [authMethod, setAuthMethod] = useState<'web3' | 'gmail' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +16,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, supabaseConfigured =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  // Check if Supabase is configured
+  const isSupabaseConfigured = () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    return supabaseUrl && 
+           supabaseKey && 
+           supabaseUrl !== 'https://placeholder.supabase.co' && 
+           supabaseKey !== 'placeholder-key' &&
+           supabaseUrl.includes('supabase.co');
+  };
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 6) {
@@ -26,7 +37,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, supabaseConfigured =
   };
 
   const handleWeb3Auth = async () => {
-    if (!supabaseConfigured) {
+    if (!isSupabaseConfigured()) {
       setError('Database not configured. Web3 authentication requires a database connection.');
       return;
     }
@@ -56,7 +67,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, supabaseConfigured =
   const handleGmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!supabaseConfigured) {
+    if (!isSupabaseConfigured()) {
       setError('Database not configured. Email authentication requires a database connection.');
       return;
     }
@@ -103,6 +114,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, supabaseConfigured =
       setLoading(false);
     }
   };
+
+  const supabaseConfigured = isSupabaseConfigured();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
