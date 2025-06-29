@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Menu, X, Lightbulb, MessageSquare, Code, Bot, BarChart3, Settings, LogOut, AlertCircle } from 'lucide-react';
+import { Bell, User, Menu, X, Lightbulb, MessageSquare, Code, Bot, BarChart3, Settings, LogOut, AlertCircle, Database } from 'lucide-react';
 import ChatRoom from './ChatRoom';
 import StudioPage from './StudioPage';
 import APIPage from './APIPage';
@@ -7,6 +7,7 @@ import BotBuilder from './BotBuilder';
 import Dashboard from './Dashboard';
 import ProfilePage from './ProfilePage';
 import NotificationPanel from './NotificationPanel';
+import DatabaseStatus from './DatabaseStatus';
 
 const MainApp: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('chat');
@@ -97,6 +98,7 @@ const MainApp: React.FC = () => {
     { id: 'api', label: 'API Hub', icon: Code, description: 'Developer tools and APIs' },
     { id: 'bots', label: 'Meeting Bots', icon: Bot, description: 'AI bots for meetings' },
     { id: 'dashboard', label: 'Analytics', icon: BarChart3, description: 'Performance insights' },
+    { id: 'database', label: 'Database Status', icon: Database, description: 'Check database integration' },
     { id: 'settings', label: 'Settings', icon: Settings, description: 'Account preferences' }
   ];
 
@@ -115,6 +117,8 @@ const MainApp: React.FC = () => {
         return <BotBuilder />;
       case 'dashboard':
         return <Dashboard />;
+      case 'database':
+        return <DatabaseStatus />;
       default:
         return <ChatRoom />;
     }
@@ -164,6 +168,12 @@ const MainApp: React.FC = () => {
                 <div>
                   <p className="text-xs text-yellow-800 font-medium">Demo Mode</p>
                   <p className="text-xs text-yellow-700">Database not configured</p>
+                  <button
+                    onClick={() => setCurrentPage('database')}
+                    className="text-xs text-yellow-800 underline hover:text-yellow-900 mt-1"
+                  >
+                    Check Status
+                  </button>
                 </div>
               </div>
             </div>
@@ -239,11 +249,26 @@ const MainApp: React.FC = () => {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-xl font-semibold text-gray-900 capitalize">
-              {currentPage === 'chat' ? 'Creative Chat' : menuItems.find(item => item.id === currentPage)?.label}
+              {currentPage === 'chat' ? 'Creative Chat' : 
+               currentPage === 'database' ? 'Database Status' :
+               menuItems.find(item => item.id === currentPage)?.label}
             </h1>
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Database Status Indicator */}
+            <button
+              onClick={() => setCurrentPage('database')}
+              className={`p-2 rounded-lg transition-colors ${
+                supabaseConfigured 
+                  ? 'text-green-600 hover:bg-green-50' 
+                  : 'text-yellow-600 hover:bg-yellow-50'
+              }`}
+              title={supabaseConfigured ? 'Database Connected' : 'Database Not Configured'}
+            >
+              <Database className="w-5 h-5" />
+            </button>
+
             {/* Notifications */}
             <div className="relative">
               <button
